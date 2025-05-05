@@ -1,0 +1,37 @@
+program WKTesteDileno;
+
+uses
+  Vcl.Forms,
+  FireDAC.Stan.Def,
+  FireDAC.Stan.Pool,
+  FireDAC.Stan.Async,
+  FireDAC.Phys.MySQL,
+  FireDAC.Phys.MySQLDef,
+  FireDAC.DApt,
+  View.Pedido in 'View\View.Pedido.pas' {frmPedido},
+  UConfigDatabase in 'Config\UConfigDatabase.pas',
+  DAO.IConnection in 'DAO\DAO.IConnection.pas',
+  DAO.ConnectionFactory in 'DAO\DAO.ConnectionFactory.pas',
+  DAO.IClienteDAO in 'DAO\DAO.IClienteDAO.pas',
+  Model.Cliente in 'Model\Model.Cliente.pas',
+  DAO.ClienteDAO in 'DAO\DAO.ClienteDAO.pas',
+  Model.Produto in 'Model\Model.Produto.pas',
+  Model.PedidoItem in 'Model\Model.PedidoItem.pas',
+  Model.Pedido in 'Model\Model.Pedido.pas',
+  DAO.IProdutoDAO in 'DAO\DAO.IProdutoDAO.pas',
+  DAO.ProdutoDAO in 'DAO\DAO.ProdutoDAO.pas',
+  DAO.IPedidoDAO in 'DAO\DAO.IPedidoDAO.pas',
+  DAO.PedidoDAO in 'DAO\DAO.PedidoDAO.pas',
+  Controller.PedidoController in 'Controller\Controller.PedidoController.pas',
+  Controller.ClienteController in 'Controller\Controller.ClienteController.pas',
+  Controller.ProdutoController in 'Controller\Controller.ProdutoController.pas',
+  Util in 'Utils\Util.pas';
+
+{$R *.res}
+
+begin
+  Application.Initialize;
+  Application.MainFormOnTaskbar := True;
+  Application.CreateForm(TfrmPedido, frmPedido);
+  Application.Run;
+end.

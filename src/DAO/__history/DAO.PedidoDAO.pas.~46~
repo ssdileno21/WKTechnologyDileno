@@ -1,0 +1,169 @@
+unit DAO.PedidoDAO;
+
+interface
+
+uses
+  DAO.IPedidoDAO, Model.Pedido, Model.PedidoItem, DAO.IConnection,
+  FireDAC.Comp.Client, System.Generics.Collections,
+  FireDAC.Stan.Param, System.SysUtils;
+
+type
+  TPedidoDAO = class(TInterfacedObject, IPedidoDAO)
+  private
+    FConexao: IConnection;
+  public
+    constructor Create(const AConn: IConnection);
+    procedure GravarPedido(const Pedido: TPedido);
+    function BuscarPedido(const NumeroPedido: Integer): TPedido;
+    procedure DeletarPedido(const NumeroPedido: Integer);
+  end;
+
+implementation
+
+{ TPedidoDAO }
+
+constructor TPedidoDAO.Create(const AConn: IConnection);
+begin
+  inherited Create;
+  FConexao := AConn;
+end;
+
+procedure TPedidoDAO.DeletarPedido(const NumeroPedido: Integer);
+var
+  conexao: TFDConnection;
+begin
+  conexao := FConexao.GetConnection;
+  try
+    conexao.StartTransaction;
+    conexao.ExecSQL('DELETE FROM item_pedido WHERE numero_pedido = ?', [NumeroPedido]);
+    conexao.ExecSQL('DELETE FROM pedido WHERE numero_pedido = ?', [NumeroPedido]);
+    conexao.Commit;
+  except
+    conexao.Rollback;
+    raise;
+  end;
+end;
+
+function TPedidoDAO.BuscarPedido(const NumeroPedido: Integer): TPedido;
+var
+  conexao: TFDConnection;
+  queryPedido, queryItens: TFDQuery;
+  pedido: TPedido;
+  item: TPedidoItem;
+begin
+  conexao := FConexao.GetConnection;
+
+  queryPedido := TFDQuery.Create(nil);
+  queryItens := TFDQuery.Create(nil);
+  try
+    queryPedido.Connection := conexao;
+    queryPedido.SQL.Text :=
+      'SELECT numero_pedido, data_emissao, codigo_cliente, valor_total ' +
+      'FROM pedido WHERE numero_pedido = :num';
+    queryPedido.ParamByName('num').AsInteger := NumeroPedido;
+    queryPedido.Open;
+
+    if queryPedido.Eof then
+      raise Exception.CreateFmt('Pedido %d não encontrado.', [NumeroPedido]);
+
+    pedido := TPedido.Create;
+    pedido.Numero := queryPedido.FieldByName('numero_pedido').AsInteger;
+    pedido.DataEmissao := queryPedido.FieldByName('data_emissao').AsDateTime;
+    pedido.Cliente.Codigo := queryPedido.FieldByName('codigo_cliente').AsInteger;
+    pedido.ValorTotal := queryPedido.FieldByName('valor_total').AsCurrency;
+
+    queryItens.Connection := conexao;
+    queryItens.SQL.Text :=
+      'SELECT i.codigo_produto, p.descricao, i.quantidade, i.valor_unitario, i.valor_total ' +
+      'FROM item_pedido i ' +
+      'JOIN produto p ON p.codigo = i.codigo_produto ' +
+      'WHERE i.numero_pedido = :num';
+    queryItens.ParamByName('num').AsInteger := NumeroPedido;
+    queryItens.Open;
+
+    while not queryItens.Eof do
+    begin
+      item := TPedidoItem.Create;
+      item.Produto.Codigo := queryItens.FieldByName('codigo_produto').AsInteger;
+      item.Produto.Descricao := queryItens.FieldByName('descricao').AsString;
+      item.Quantidade := queryItens.FieldByName('quantidade').AsInteger;
+      item.ValorUnitario := queryItens.FieldByName('valor_unitario').AsCurrency;
+      item.ValorTotal := queryItens.FieldByName('valor_total').AsCurrency;
+      pedido.Itens.Add(item);
+      queryItens.Next;
+    end;
+
+    Result := pedido;
+
+  finally
+    FreeAndNil(queryItens);
+    FreeAndNil(queryPedido);
+  end;
+end;
+
+procedure TPedidoDAO.GravarPedido(const Pedido: TPedido);
+var
+  conexao: TFDConnection;
+  query: TFDQuery;
+  item: TPedidoItem;
+begin
+  conexao := FConexao.GetConnection;
+
+  query := TFDQuery.Create(nil);
+  try
+    query.Connection := conexao;
+
+    try
+      conexao.StartTransaction;
+
+      if Pedido.Numero = 0 then
+      begin
+        query.SQL.Text := 'SELECT COALESCE(MAX(numero_pedido), 0) + 1 AS proximo FROM pedido';
+        query.Open;
+        Pedido.Numero := query.FieldByName('proximo').AsInteger;
+        query.Close;
+      end;
+
+      query.SQL.Text :=
+        'REPLACE INTO pedido (numero_pedido, data_emissao, codigo_cliente, valor_total) ' +
+        'VALUES (:num, :data, :cli, :total)';
+      query.ParamByName('num').AsInteger := Pedido.Numero;
+      query.ParamByName('data').AsDateTime := Pedido.DataEmissao;
+      query.ParamByName('cli').AsInteger := Pedido.Cliente.Codigo;
+      query.ParamByName('total').AsCurrency := Pedido.ValorTotal;
+      query.ExecSQL;
+
+      query.SQL.Text := 'DELETE FROM item_pedido WHERE numero_pedido = :num';
+      query.ParamByName('num').AsInteger := Pedido.Numero;
+      query.ExecSQL;
+
+      for item in Pedido.Itens do
+      begin
+        query.SQL.Text :=
+          'INSERT INTO item_pedido (numero_pedido, codigo_produto, quantidade, valor_unitario, valor_total) ' +
+          'VALUES (:num, :prod, :qtd, :vu, :vt)';
+        query.ParamByName('num').AsInteger := Pedido.Numero;
+        query.ParamByName('prod').AsInteger := item.Produto.Codigo;
+        query.ParamByName('qtd').AsInteger := item.Quantidade;
+        query.ParamByName('vu').AsCurrency := item.ValorUnitario;
+        query.ParamByName('vt').AsCurrency := item.ValorTotal;
+        query.ExecSQL;
+      end;
+
+      conexao.Commit;
+
+    except
+      on E: Exception do
+      begin
+        conexao.Rollback;
+        raise Exception.Create('Erro ao gravar pedido: ' + E.Message);
+      end;
+    end;
+
+  finally
+    query.Free;
+  end;
+end;
+
+end.
+

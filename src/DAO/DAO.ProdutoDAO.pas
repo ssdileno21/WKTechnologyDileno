@@ -1,0 +1,81 @@
+unit DAO.ProdutoDAO;
+
+interface
+
+uses
+  DAO.IProdutoDAO, Model.Produto, System.Generics.Collections, DAO.IConnection,
+  FireDAC.Comp.Client, System.SysUtils, FireDAC.Stan.Param;
+
+type
+  TProdutoDAO = class(TInterfacedObject, IProdutoDAO)
+  private
+    FConnIntf: IConnection;
+  public
+    constructor Create(const AConn: IConnection);
+    function ListarTodos: TObjectList<TProduto>;
+    function BuscarPorCodigo(const ACodigo: Integer): TProduto;
+  end;
+
+implementation
+
+{ TProdutoDAO }
+
+constructor TProdutoDAO.Create(const AConn: IConnection);
+begin
+  inherited Create;
+  FConnIntf := AConn;
+end;
+
+function TProdutoDAO.BuscarPorCodigo(const ACodigo: Integer): TProduto;
+var
+  query: TFDQuery;
+begin
+  query := TFDQuery.Create(nil);
+  try
+    query.Connection := FConnIntf.GetConnection;
+    query.SQL.Text :=
+      'SELECT codigo, descricao, preco_venda '+
+      'FROM produto WHERE codigo = :pCodigo';
+    query.ParamByName('pCodigo').AsInteger := ACodigo;
+    query.Open;
+    if query.Eof then
+      raise Exception.CreateFmt('Produto %d não encontrado',[ACodigo]);
+    Result := TProduto.Create;
+    Result.Codigo := query.FieldByName('codigo').AsInteger;
+    Result.Descricao := query.FieldByName('descricao').AsString;
+    Result.Preco := query.FieldByName('preco_venda').AsCurrency;
+  finally
+    FreeAndNil(query);
+  end;
+end;
+
+function TProdutoDAO.ListarTodos: TObjectList<TProduto>;
+var
+  query: TFDQuery;
+  listaProduto: TObjectList<TProduto>;
+  produto: TProduto;
+begin
+  listaProduto := TObjectList<TProduto>.Create(True);
+  query := TFDQuery.Create(nil);
+  try
+    query.Connection := FConnIntf.GetConnection;
+    query.SQL.Text :=
+      'SELECT codigo, descricao, preco_venda '+
+      'FROM produto ORDER BY descricao';
+    query.Open;
+    while not query.Eof do
+    begin
+      produto := TProduto.Create;
+      produto.Codigo := query.FieldByName('codigo').AsInteger;
+      produto.Descricao := query.FieldByName('descricao').AsString;
+      produto.Preco := query.FieldByName('preco_venda').AsCurrency;
+      listaProduto.Add(produto);
+      query.Next;
+    end;
+    Result := listaProduto;
+  finally
+    FreeAndNil(query);
+  end;
+end;
+
+end.

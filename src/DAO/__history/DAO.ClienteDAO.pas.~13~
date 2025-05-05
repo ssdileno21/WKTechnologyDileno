@@ -1,0 +1,81 @@
+unit DAO.ClienteDAO;
+
+interface
+
+uses
+  DAO.IClienteDAO, Model.Cliente, System.Generics.Collections, DAO.IConnection,
+  FireDAC.Comp.Client, System.SysUtils, FireDAC.Stan.Param;
+
+type
+  TClienteDAO = class(TInterfacedObject, IClienteDAO)
+  private
+    FConnIntf: IConnection;
+  public
+    constructor Create(const AConn: IConnection);
+    function ListarTodos: TObjectList<TCliente>;
+    function BuscarPorCodigo(const ACodigo: Integer): TCliente;
+  end;
+
+implementation
+
+{ TClienteDAO }
+
+constructor TClienteDAO.Create(const AConn: IConnection);
+begin
+  inherited Create;
+  FConnIntf := AConn;
+end;
+
+function TClienteDAO.BuscarPorCodigo(const ACodigo: Integer): TCliente;
+var
+  query: TFDQuery;
+begin
+  query := TFDQuery.Create(nil);
+  try
+    query.Connection := FConnIntf.GetConnection;
+    query.SQL.Text :=
+      'SELECT codigo, nome, cidade, uf FROM cliente WHERE codigo = :pCodigo';
+    query.ParamByName('pCodigo').AsInteger := ACodigo;
+    query.Open;
+    if query.Eof then
+      raise Exception.CreateFmt('Cliente %d não encontrado',[ACodigo]);
+    Result := TCliente.Create;
+    Result.Codigo := query.FieldByName('codigo').AsInteger;
+    Result.Nome := query.FieldByName('nome').AsString;
+    Result.Cidade := query.FieldByName('cidade').AsString;
+    Result.UF := query.FieldByName('uf').AsString;
+  finally
+    query.Free;
+  end;
+end;
+
+function TClienteDAO.ListarTodos: TObjectList<TCliente>;
+var
+  query: TFDQuery;
+  listaCliente: TObjectList<TCliente>;
+  cliente: TCliente;
+begin
+  listaCliente := TObjectList<TCliente>.Create(True);
+  query := TFDQuery.Create(nil);
+  try
+    query.Connection := FConnIntf.GetConnection;
+    query.SQL.Text :=
+      'SELECT codigo, nome, cidade, uf FROM cliente ORDER BY nome';
+    query.Open;
+    while not query.Eof do
+    begin
+      cliente := TCliente.Create;
+      cliente.Codigo := query.FieldByName('codigo').AsInteger;
+      cliente.Nome := query.FieldByName('nome').AsString;
+      cliente.Cidade := query.FieldByName('cidade').AsString;
+      cliente.UF := query.FieldByName('uf').AsString;
+      listaCliente.Add(cli);
+      query.Next;
+    end;
+    Result := listaCliente;
+  finally
+    query.Free;
+  end;
+end;
+
+end.

@@ -1,0 +1,74 @@
+unit UConfigDatabase;
+
+interface
+
+uses
+  System.SysUtils, System.IniFiles, FireDAC.Comp.Client, dialogs;
+
+type
+  TConfigDatabase = class
+  private
+    FConfigIni: TIniFile;
+    FConexao: TFDConnection;
+    function LoadIni: Boolean;
+  public
+    constructor Create(const APath: string);
+    destructor Destroy; override;
+    function GetConnection: TFDConnection;
+  end;
+
+implementation
+
+{ TConfigDatabase }
+
+constructor TConfigDatabase.Create(const APath: string);
+begin
+  inherited create;
+  FConfigIni := TIniFile.Create(APath);
+  FConexao := TFDConnection.Create(nil);
+  try
+    if not LoadIni then
+      raise Exception.Create('Erro ao carregar configuração de banco');
+  except
+    FreeAndNil(FConfigIni);
+    FreeAndNil(FConexao);
+    raise;
+  end;
+end;
+
+destructor TConfigDatabase.Destroy;
+begin
+  FreeAndNil(FConexao);
+  FreeAndNil(FConfigIni);
+  inherited;
+end;
+
+function TConfigDatabase.GetConnection: TFDConnection;
+begin
+  if not FConexao.Connected then
+    FConexao.Open;
+  Result := FConexao;
+end;
+
+function TConfigDatabase.LoadIni: Boolean;
+var
+  dllPath: string;
+begin
+  dllPath := IncludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0))) + 'libmysql.dll';
+  FConexao.Params.Clear;
+  FConexao.Params.Add('DriverID=MySQL');
+  FConexao.Params.Add('Server='   + FConfigIni.ReadString('Database','Host','localhost'));
+  FConexao.Params.Add('Port='     + FConfigIni.ReadString('Database','Port','3306'));
+  FConexao.Params.Add('Database=' + FConfigIni.ReadString('Database','Database',''));
+  FConexao.Params.Add('User_Name='+ FConfigIni.ReadString('Database','Username',''));
+  FConexao.Params.Add('Password=' + FConfigIni.ReadString('Database','Password',''));
+  FConexao.Params.Add('VendorLib=libmysql.dll');
+  FConexao.Params.Add('SslMode=DISABLED');
+  FConexao.Params.Add('UseSSL=0');
+  FConexao.Params.Add('Protocols=tcpip');
+  FConexao.Params.Add('CharacterSet=utf8mb4');
+  Result := True;
+end;
+
+
+end.

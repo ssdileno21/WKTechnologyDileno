@@ -1,0 +1,7 @@
+unit DAO.IConnection;
+
+interface
+
+implementation
+
+end.

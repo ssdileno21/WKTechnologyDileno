@@ -1,0 +1,18 @@
+unit DAO.IPedidoDAO;
+
+interface
+
+uses
+  Model.Pedido, System.Generics.Collections;
+
+type
+  IPedidoDAO = interface
+    ['{4E916EF3-89EC-412F-B275-371EC67C925A}']
+    procedure GravarPedido(const APedido: TPedido);
+    function BuscarPedido(const ANumero: Integer): TPedido;
+    procedure DeletarPedido(const ANumero: Integer);
+  end;
+
+implementation
+
+end.

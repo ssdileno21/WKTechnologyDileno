@@ -1,0 +1,17 @@
+unit Util;
+
+interface
+
+uses System.SysUtils;
+
+function GetConfigIniPath : string;
+
+implementation
+
+function GetiniPath : string;
+begin
+  Result := ExtractFilePath(ParamStr(0)) + 'config.ini';
+end;
+
+
+end.

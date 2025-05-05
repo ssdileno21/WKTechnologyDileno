@@ -1,0 +1,65 @@
+unit Model.Pedido;
+
+interface
+
+uses
+  System.Generics.Collections, Model.Cliente, Model.PedidoItem, Model.Produto,
+  System.SysUtils;
+
+type
+  TPedido = class
+  private
+    FNumero: Integer;
+    FDataEmissao: TDateTime;
+    FCliente: TCliente;
+    FProduto: TProduto;
+    FItens: TObjectList<TPedidoItem>;
+    FValorTotal: Currency;
+    procedure SetClienteCodigo(const ACodigo: Integer);
+  public
+    constructor Create;
+    destructor Destroy; override;
+    procedure CalculaTotal;
+    property Numero: Integer read FNumero write FNumero;
+    property DataEmissao: TDateTime read FDataEmissao write FDataEmissao;
+    property Cliente: TCliente read FCliente write FCliente;
+    property Produto: TProduto read FProduto write FProduto;
+    property Itens: TObjectList<TPedidoItem> read FItens;
+    property ValorTotal: Currency read FValorTotal write FVAlorTotal;
+    property ClienteCodigo: Integer write SetClienteCodigo;
+  end;
+
+implementation
+
+{ TPedido }
+
+procedure TPedido.CalculaTotal;
+begin
+  FValorTotal := 0;
+  for var itm in FItens do
+    FValorTotal := FValorTotal + itm.ValorTotal;
+end;
+
+constructor TPedido.Create;
+begin
+  inherited;
+  FCliente := TCliente.Create;
+  FProduto := TProduto.Create;
+  FItens := TObjectList<TPedidoItem>.Create(True);
+  FDataEmissao := Now;
+end;
+
+destructor TPedido.Destroy;
+begin
+  FreeAndNil(FItens);
+  FreeAndNil(FCliente);
+  FreeAndNil(FProduto);
+  inherited;
+end;
+
+procedure TPedido.SetClienteCodigo(const ACodigo: Integer);
+begin
+  FCliente.Codigo := ACodigo;
+end;
+
+end.

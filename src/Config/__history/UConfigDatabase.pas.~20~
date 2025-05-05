@@ -1,0 +1,68 @@
+unit UConfigDatabase;
+
+interface
+
+uses
+  System.SysUtils, System.IniFiles, FireDAC.Comp.Client, dialogs;
+
+type
+  TConfigDatabase = class
+  private
+    FIni: TIniFile;
+    FConn: TFDConnection;
+    function LoadIni: Boolean;
+  public
+    constructor Create(const APath: string);
+    destructor Destroy; override;
+    function GetConnection: TFDConnection;
+  end;
+
+implementation
+
+{ TConfigDatabase }
+
+constructor TConfigDatabase.Create(const APath: string);
+begin
+  inherited Create;
+  FIni := TIniFile.Create(APath);
+  FConn := TFDConnection.Create(nil);
+  if not LoadIni then
+    raise Exception.Create('Erro ao carregar configuração de banco');
+end;
+
+destructor TConfigDatabase.Destroy;
+begin
+  FreeAndNil(FConn);
+  FreeAndNil(FIni);
+  inherited;
+end;
+
+function TConfigDatabase.GetConnection: TFDConnection;
+begin
+  if not FConn.Connected then
+    FConn.Open;
+  Result := FConn;
+end;
+
+function TConfigDatabase.LoadIni: Boolean;
+var
+  dllPath: string;
+begin
+  dllPath := IncludeTrailingPathDelimiter(ExtractFilePath(ParamStr(0))) + 'libmysql.dll';
+  FConn.Params.Clear;
+  FConn.Params.Add('DriverID=MySQL');
+  FConn.Params.Add('Server='   + FIni.ReadString('Database','Host','localhost'));
+  FConn.Params.Add('Port='     + FIni.ReadString('Database','Port','3306'));
+  FConn.Params.Add('Database=' + FIni.ReadString('Database','Database',''));
+  FConn.Params.Add('User_Name='+ FIni.ReadString('Database','Username',''));
+  FConn.Params.Add('Password=' + FIni.ReadString('Database','Password',''));
+  FConn.Params.Add('VendorLib=libmysql.dll');
+  FConn.Params.Add('SslMode=DISABLED');
+  FConn.Params.Add('UseSSL=0');
+  FConn.Params.Add('Protocols=tcpip');
+  FConn.Params.Add('CharacterSet=utf8mb4');
+  Result := True;
+end;
+
+
+end.

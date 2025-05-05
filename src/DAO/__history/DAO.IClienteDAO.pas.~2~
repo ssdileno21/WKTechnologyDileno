@@ -1,0 +1,17 @@
+unit DAO.IClienteDAO;
+
+interface
+
+uses
+  System.Generics.Collections, Model.Cliente;
+
+type
+  IClienteDAO = interface
+    ['{A1234567-89AB-CDEF-0123-456789ABCDEF}']
+    function ListAll: TObjectList<TCliente>;
+    function FindById(const ACodigo: Integer): TCliente;
+  end;
+
+implementation
+
+end.

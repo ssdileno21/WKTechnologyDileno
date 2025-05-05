@@ -1,0 +1,52 @@
+unit Model.PedidoItem;
+
+interface
+
+uses
+  Model.Produto;
+
+type
+  TPedidoItem = class
+  private
+    FProduto: TProduto;
+    FQuantidade: Integer;
+    FValorUnitario: Currency;
+    FValorTotal: Currency;
+    procedure SetProdutoCodigo(const ACodigo: Integer);
+  public
+    constructor Create;
+    destructor Destroy; override;
+    property Produto: TProduto read FProduto;
+    property Quantidade: Integer read FQuantidade write FQuantidade;
+    property ValorUnitario: Currency read FValorUnitario write FValorUnitario;
+    property ValorTotal: Currency read FValorTotal write FValorTotal;
+    procedure CalculaTotal;
+    property ProdutoCodigo: Integer write SetProdutoCodigo;
+  end;
+
+implementation
+
+{ TPedidoItem }
+
+procedure TPedidoItem.CalculaTotal;
+begin
+  FValorTotal := FQuantidade * FValorUnitario;
+end;
+
+constructor TPedidoItem.Create;
+begin
+  FProduto := TProduto.Create;
+end;
+
+destructor TPedidoItem.Destroy;
+begin
+  FProduto.Free;
+  inherited;
+end;
+
+procedure TPedidoItem.SetProdutoCodigo(const ACodigo: Integer);
+begin
+  FProduto.Codigo := ACodigo;
+end;
+
+end.

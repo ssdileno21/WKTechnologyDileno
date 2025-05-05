@@ -1,0 +1,557 @@
+unit View.Pedido;
+
+interface
+
+uses
+  Winapi.Windows, Winapi.Messages, System.SysUtils, System.Variants,
+  System.Classes, Vcl.Graphics, Vcl.Controls, Vcl.Forms, Vcl.Dialogs,
+  Vcl.StdCtrls, Vcl.Buttons, Vcl.ExtCtrls,Vcl.DBCtrls, Data.DB, Vcl.Grids,
+  Vcl.DBGrids, Controller.PedidoController, FireDAC.Stan.Intf,
+  FireDAC.Stan.Option, FireDAC.Stan.Param, FireDAC.Stan.Error, FireDAC.DatS,
+  FireDAC.Phys.Intf, FireDAC.DApt.Intf, FireDAC.Comp.DataSet,
+  FireDAC.Comp.Client, FireDAC.UI.Intf, FireDAC.VCLUI.Wait, FireDAC.Comp.UI,
+  System.Math, System.UITypes, Util;
+
+type
+  TfrmPedido = class(TForm)
+    GroupBoxCliente: TGroupBox;
+    edtCodigoCliente: TEdit;
+    edtNomeCliente: TEdit;
+    btnPesquisarCliente: TSpeedButton;
+    GroupBoxProduto: TGroupBox;
+    edtCodigoProduto: TEdit;
+    edtDescricaoProduto: TEdit;
+    lbProduto: TLabel;
+    edtQuantidade: TEdit;
+    lbQuantidade: TLabel;
+    lbVlrUnitario: TLabel;
+    edtValorUnitario: TEdit;
+    btnAdicionarItem: TSpeedButton;
+    pnItens: TPanel;
+    dbnItens: TDBNavigator;
+    dbgItens: TDBGrid;
+    MemItems: TFDMemTable;
+    Panel1: TPanel;
+    lbTotal: TLabel;
+    MemItemscodigo: TIntegerField;
+    MemItemsdescricao: TStringField;
+    MemItemsquantidade: TIntegerField;
+    MemItemsvalor_unitario: TCurrencyField;
+    MemItemsvalor_total: TCurrencyField;
+    dsItens: TDataSource;
+    Panel2: TPanel;
+    btnCancelar: TSpeedButton;
+    btnCarregarPedido: TSpeedButton;
+    btnGravarPedido: TSpeedButton;
+    FDGUIxWaitCursor1: TFDGUIxWaitCursor;
+    btnDeletarPedido: TSpeedButton;
+    procedure FormCreate(Sender: TObject);
+    procedure btnAdicionarItemClick(Sender: TObject);
+    procedure dbgItensKeyDown(Sender: TObject; var Key: Word;
+      Shift: TShiftState);
+    procedure btnGravarPedidoClick(Sender: TObject);
+    procedure btnPesquisarClienteClick(Sender: TObject);
+    procedure edtCodigoClienteExit(Sender: TObject);
+    procedure edtCodigoProdutoExit(Sender: TObject);
+    procedure btnCarregarPedidoClick(Sender: TObject);
+    procedure btnCancelarClick(Sender: TObject);
+    procedure edtCodigoClienteKeyPress(Sender: TObject; var Key: Char);
+    procedure edtCodigoProdutoKeyPress(Sender: TObject; var Key: Char);
+    procedure edtQuantidadeKeyPress(Sender: TObject; var Key: Char);
+    procedure edtValorUnitarioKeyPress(Sender: TObject; var Key: Char);
+    procedure edtValorUnitarioExit(Sender: TObject);
+    procedure btnDeletarPedidoClick(Sender: TObject);
+  private
+    { Private declarations }
+    FController: TPedidoController;
+    FIndiceEdicao: Integer;
+
+    function ValidarCliente: Boolean;
+    function ValidarProduto: Boolean;
+    function ValidarItem: Boolean;
+    function Confirmar(const AMsg: string): Boolean;
+
+    procedure AtualizarItensGrid;
+    procedure AtualizarTotalPedido;
+    procedure AdicionarItem;
+    procedure AtualizarItem;
+    procedure CarregarParaEdicao;
+    procedure ExcluirItem;
+    procedure LimparTela;
+    procedure AtualizarControles;
+    procedure ExibirAlerta(const AMsg: string; AControl: TWinControl);
+    procedure CarregarPedido(const ANumeroPedido: Integer);
+    procedure AjustarParaAddNovoItem;
+    procedure AjustarAposFinalizarPedido;
+    procedure LimparInputsProduto;
+    procedure AtualizarEstadoCamposProduto(AAtivo: Boolean);
+
+  public
+    { Public declarations }
+  end;
+
+var
+  frmPedido: TfrmPedido;
+
+implementation
+
+{$R *.dfm}
+
+procedure TfrmPedido.FormCreate(Sender: TObject);
+begin
+  FController := TPedidoController.Create;
+  FController.NovoPedido;
+  MemItems.Open;
+  FIndiceEdicao := -1;
+  AtualizarControles;
+end;
+
+procedure TfrmPedido.AdicionarItem;
+var
+  codigo, quantidade: Integer;
+  valor: Currency;
+begin
+  codigo := StrToIntDef(edtCodigoProduto.Text, 0);
+  quantidade := StrToIntDef(edtQuantidade.Text, 0);
+  if not TryStrToCurr(edtValorUnitario.Text, valor, FormatSettings) then
+  begin
+    ExibirAlerta('Valor unitário inválido.', edtValorUnitario);
+    Exit;
+  end;
+
+  FController.AdicionarItem(codigo, quantidade, valor);
+  AtualizarItensGrid;
+  AtualizarTotalPedido;
+  AtualizarControles;
+end;
+
+procedure TfrmPedido.AtualizarItem;
+var
+  quantidade: Integer;
+  valor: Currency;
+begin
+  quantidade := StrToIntDef(edtQuantidade.Text, 0);
+  if not TryStrToCurr(edtValorUnitario.Text, valor, FormatSettings) then
+  begin
+    ExibirAlerta('Valor unitário inválido.', edtValorUnitario);
+    Exit;
+  end;
+
+  FController.AtualizarItem(FIndiceEdicao, quantidade, valor);
+  FIndiceEdicao := -1;
+  btnAdicionarItem.Caption := 'Adicionar';
+  LimparInputsProduto;
+  edtCodigoProduto.SetFocus;
+
+  AtualizarItensGrid;
+  AtualizarTotalPedido;
+  AtualizarControles;
+end;
+
+procedure TfrmPedido.AtualizarItensGrid;
+begin
+  MemItems.EmptyDataSet;
+  for var itm in FController.RetornaItems do
+    MemItems.AppendRecord([
+      itm.Produto.Codigo,
+      itm.Produto.Descricao,
+      itm.Quantidade,
+      itm.ValorUnitario,
+      itm.ValorTotal
+    ]);
+end;
+
+procedure TfrmPedido.AtualizarTotalPedido;
+begin
+  lbTotal.Caption := 'Total: R$ ' + CurrToStr(FController.RetornaTotal);
+end;
+
+procedure TfrmPedido.CarregarParaEdicao;
+begin
+  if MemItems.RecordCount = 0 then Exit;
+  FIndiceEdicao := MemItems.RecNo - 1;
+  edtCodigoProduto.Text    := MemItems.FieldByName('codigo').AsString;
+  edtDescricaoProduto.Text := MemItems.FieldByName('descricao').AsString;
+  edtQuantidade.Text       := MemItems.FieldByName('quantidade').AsString;
+  edtValorUnitario.Text    := MemItems.FieldByName('valor_unitario').AsString;
+  btnAdicionarItem.Caption := 'Atualizar';
+  edtQuantidade.SetFocus;
+end;
+
+procedure TfrmPedido.CarregarPedido(const ANumeroPedido: Integer);
+begin
+  FController.CarregarPedido(ANumeroPedido);
+
+  edtCodigoCliente.Text := FController.Pedido.Cliente.Codigo.ToString;
+  edtNomeCliente.Text   := FController.Pedido.Cliente.Nome;
+
+  LimparInputsProduto;
+  FIndiceEdicao := -1;
+  btnAdicionarItem.Caption := 'Adicionar';
+
+  AtualizarItensGrid;
+  AtualizarTotalPedido;
+  btnGravarPedido.Enabled := True;
+  btnCancelar.Enabled := True;
+  AtualizarControles;
+  edtCodigoProduto.SetFocus;
+end;
+
+function TfrmPedido.Confirmar(const AMsg: string): Boolean;
+begin
+  Result := MessageDlg(AMsg, mtConfirmation, [mbYes, mbNo], 0) = mrYes;
+end;
+
+procedure TfrmPedido.AjustarParaAddNovoItem;
+begin
+  FIndiceEdicao := -1;
+  btnAdicionarItem.Caption := 'Adicionar';
+  LimparInputsProduto;
+  edtCodigoProduto.SetFocus;
+  AtualizarItensGrid;
+  AtualizarTotalPedido;
+  AtualizarControles;
+end;
+
+procedure TfrmPedido.AjustarAposFinalizarPedido;
+begin
+  LimparTela;
+  FController.NovoPedido;
+  AtualizarControles;
+
+  GroupBoxProduto.Enabled    := True;
+  edtCodigoProduto.Enabled   := True;
+  edtQuantidade.Enabled      := True;
+  edtValorUnitario.Enabled   := True;
+  btnAdicionarItem.Enabled   := True;
+  dbgItens.Enabled           := True;
+  dbnItens.Enabled           := True;
+
+  if edtCodigoCliente.CanFocus then
+    edtCodigoCliente.SetFocus;
+end;
+
+procedure TfrmPedido.AtualizarControles;
+var
+  temCliente, temItens, pedidoCarregado: Boolean;
+begin
+  temCliente := Trim(edtCodigoCliente.Text) <> '';
+  temItens   := MemItems.RecordCount > 0;
+  pedidoCarregado := FController.Pedido.Numero > 0;
+
+  DefinirEstadoControleVisual(edtCodigoCliente, not temItens);
+  btnPesquisarCliente.Enabled := not temItens;
+
+  GroupBoxProduto.Enabled := temCliente;
+  AtualizarEstadoCamposProduto(temCliente);
+
+  btnAdicionarItem.Enabled := temCliente;
+  btnGravarPedido.Enabled  := temCliente and temItens;
+  btnCarregarPedido.Enabled:= not temCliente;
+  btnCancelar.Enabled      := temCliente or temItens;
+  btnDeletarPedido.Enabled := pedidoCarregado;
+end;
+
+
+procedure TfrmPedido.AtualizarEstadoCamposProduto(AAtivo: Boolean);
+begin
+  DefinirEstadoControleVisual(edtCodigoProduto,    AAtivo);
+  DefinirEstadoControleVisual(edtQuantidade,       AAtivo);
+  DefinirEstadoControleVisual(edtValorUnitario,    AAtivo);
+end;
+
+procedure TfrmPedido.dbgItensKeyDown(Sender: TObject; var Key: Word;
+  Shift: TShiftState);
+begin
+  if Key = VK_DELETE then
+    ExcluirItem
+  else if Key = VK_RETURN then
+    CarregarParaEdicao;
+end;
+
+procedure TfrmPedido.edtCodigoClienteExit(Sender: TObject);
+begin
+  if Trim(edtCodigoCliente.Text) = '' then
+    Exit;
+
+  if ValidarCliente then
+  begin
+    AtualizarControles;
+    edtCodigoProduto.SetFocus;
+  end;
+end;
+
+procedure TfrmPedido.edtCodigoClienteKeyPress(Sender: TObject; var Key: Char);
+begin
+  if not CharInSet(Key, [#8, '0'..'9']) then
+    Key := #0;
+end;
+
+procedure TfrmPedido.edtCodigoProdutoExit(Sender: TObject);
+begin
+  if Trim(edtCodigoProduto.Text) = '' then
+    Exit;
+
+  ValidarProduto;
+  AtualizarControles;
+end;
+
+procedure TfrmPedido.edtCodigoProdutoKeyPress(Sender: TObject; var Key: Char);
+begin
+  if not CharInSet(Key, [#8, '0'..'9']) then
+    Key := #0;
+end;
+
+procedure TfrmPedido.edtQuantidadeKeyPress(Sender: TObject; var Key: Char);
+begin
+  if not CharInSet(Key, [#8, '0'..'9']) then
+    Key := #0;
+end;
+
+procedure TfrmPedido.edtValorUnitarioExit(Sender: TObject);
+var
+  valor: Currency;
+begin
+  if TryStrToCurr(edtValorUnitario.Text, valor) then
+    edtValorUnitario.Text := FormatFloat('#,##0.00', valor)
+  else
+    edtValorUnitario.Text := '';
+end;
+
+procedure TfrmPedido.edtValorUnitarioKeyPress(Sender: TObject; var Key: Char);
+var
+  separador: Char;
+begin
+  separador := FormatSettings.DecimalSeparator;
+  if not CharInSet(Key, [#8, '0'..'9', separador]) then
+    Key := #0
+  else if (Key = separador) and (Pos(separador, edtValorUnitario.Text) > 0) then
+    Key := #0;
+end;
+
+procedure TfrmPedido.ExcluirItem;
+begin
+  if Confirmar('Confirma exclusão do item?') then
+  begin
+    FIndiceEdicao := dbgItens.DataSource.DataSet.RecNo - 1;
+    FController.RemoverItem(FIndiceEdicao);
+    AtualizarItensGrid;
+    AtualizarTotalPedido;
+    AtualizarControles;
+    AjustarParaAddNovoItem;
+  end;
+end;
+
+procedure TfrmPedido.ExibirAlerta(const AMsg: string; AControl: TWinControl);
+begin
+  MessageDlg(AMsg, mtWarning, [mbOK], 0);
+  AControl.SetFocus;
+end;
+
+procedure TfrmPedido.LimparInputsProduto;
+begin
+  edtCodigoProduto.Clear;
+  edtDescricaoProduto.Clear;
+  edtQuantidade.Clear;
+  edtValorUnitario.Clear;
+end;
+
+procedure TfrmPedido.LimparTela;
+begin
+  edtCodigoCliente.Clear;
+  edtNomeCliente.Clear;
+  edtCodigoProduto.Clear;
+  edtDescricaoProduto.Clear;
+  edtQuantidade.Clear;
+  edtValorUnitario.Clear;
+  MemItems.EmptyDataSet;
+  AtualizarTotalPedido;
+end;
+
+procedure TfrmPedido.btnAdicionarItemClick(Sender: TObject);
+begin
+  if not ValidarItem then Exit;
+
+  if FIndiceEdicao >= 0 then
+    AtualizarItem
+  else
+    AdicionarItem;
+
+  AjustarParaAddNovoItem;
+end;
+
+procedure TfrmPedido.btnCancelarClick(Sender: TObject);
+begin
+  if not Confirmar('Deseja cancelar a operação atual?') then
+    Exit;
+
+  if FController.Pedido.Numero = 0 then
+  begin
+    LimparTela;
+    FController.NovoPedido;
+  end
+  else
+  begin
+    FController.NovoPedido;
+  end;
+
+  AtualizarControles;
+  AjustarAposFinalizarPedido;
+end;
+
+procedure TfrmPedido.btnGravarPedidoClick(Sender: TObject);
+begin
+  if not ValidarCliente then
+    Exit;
+
+  FController.Pedido.DataEmissao := Now;
+  FController.GravarPedido;
+  ShowMessage('Pedido gravado. Número: ' + FController.Pedido.Numero.ToString);
+
+  LimparTela;
+  FController.NovoPedido;
+  AtualizarControles;
+
+  GroupBoxProduto.Enabled    := True;
+  edtCodigoProduto.Enabled   := True;
+  edtQuantidade.Enabled      := True;
+  edtValorUnitario.Enabled   := True;
+  btnAdicionarItem.Enabled   := True;
+
+  if edtCodigoProduto.CanFocus then
+    edtCodigoProduto.SetFocus;
+
+  AjustarAposFinalizarPedido;
+end;
+
+procedure TfrmPedido.btnPesquisarClienteClick(Sender: TObject);
+begin
+  if ValidarCliente then
+  begin
+    AtualizarControles;
+    edtCodigoProduto.SetFocus;
+  end;
+end;
+
+procedure TfrmPedido.btnCarregarPedidoClick(Sender: TObject);
+var
+  numeroPedido: string;
+  iNumeroPedido: Integer;
+begin
+  if not InputQuery('Pesquisar Pedido', 'Número do Pedido:', numeroPedido) then
+    Exit;
+
+  iNumeroPedido := StrToIntDef(numeroPedido, 0);
+  if iNumeroPedido <= 0 then
+  begin
+    MessageDlg('Número de pedido inválido.', mtWarning, [mbOK], 0);
+    Exit;
+  end;
+
+  CarregarPedido(iNumeroPedido);
+end;
+
+procedure TfrmPedido.btnDeletarPedidoClick(Sender: TObject);
+var
+  numeroPedido: Integer;
+begin
+  numeroPedido := FController.Pedido.Numero;
+
+  if numeroPedido <= 0 then
+  begin
+    MessageDlg('Nenhum pedido carregado para exclusão.', mtWarning, [mbOK], 0);
+    Exit;
+  end;
+
+  if not Confirmar('Deseja realmente excluir este pedido?') then
+    Exit;
+
+  try
+    FController.DeletarPedido(numeroPedido);
+    ShowMessage('Pedido excluído com sucesso.');
+
+    LimparTela;
+    FController.NovoPedido;
+    AtualizarControles;
+
+    AjustarAposFinalizarPedido;
+  except
+    on E: Exception do
+      MessageDlg('Erro ao excluir o pedido: ' + E.Message, mtError, [mbOK], 0);
+  end;
+end;
+
+function TfrmPedido.ValidarCliente: Boolean;
+var
+  code: Integer;
+begin
+  code := StrToIntDef(edtCodigoCliente.Text, 0);
+  if code <= 0 then
+  begin
+    ExibirAlerta('Informe o código do cliente.', edtCodigoCliente);
+    Exit(False);
+  end;
+  try
+    edtNomeCliente.Text := FController.DefinirCliente(code);
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      ExibirAlerta('Cliente não encontrado: ' + E.Message, edtCodigoCliente);
+      Result := False;
+    end;
+  end;
+end;
+
+function TfrmPedido.ValidarItem: Boolean;
+var
+  textoValorCompleto: string;
+  valorNumerico: Double;
+begin
+  if not ValidarProduto then
+    Exit(False);
+
+  if StrToIntDef(edtQuantidade.Text, -1) < 0 then
+  begin
+    ExibirAlerta('Quantidade inválida.', edtQuantidade);
+    Exit(False);
+  end;
+
+  textoValorCompleto := edtValorUnitario.Text;
+  textoValorCompleto := StringReplace(textoValorCompleto,
+    FormatSettings.ThousandSeparator, '', [rfReplaceAll]);
+  textoValorCompleto := Trim(textoValorCompleto);
+
+  if not TryStrToFloat(textoValorCompleto, valorNumerico) or (valorNumerico < 0) then
+  begin
+    ExibirAlerta('Valor unitário inválido.', edtValorUnitario);
+    Exit(False);
+  end;
+
+  Result := True;
+end;
+
+
+function TfrmPedido.ValidarProduto: Boolean;
+var
+  code: Integer;
+begin
+  code := StrToIntDef(edtCodigoProduto.Text, 0);
+  if code <= 0 then
+  begin
+    ExibirAlerta('Informe o código do produto.', edtCodigoProduto);
+    Exit(False);
+  end;
+  try
+    edtDescricaoProduto.Text := FController.DefinirProduto(code);
+    Result := True;
+  except
+    on E: Exception do
+    begin
+      ExibirAlerta('Produto não encontrado: ' + E.Message, edtCodigoProduto);
+      Result := False;
+    end;
+  end;
+end;
+
+end.

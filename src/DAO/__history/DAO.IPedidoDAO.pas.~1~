@@ -1,0 +1,7 @@
+unit DAO.IPedidoDAO;
+
+interface
+
+implementation
+
+end.

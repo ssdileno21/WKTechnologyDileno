@@ -1,0 +1,7 @@
+unit DAO.IClienteDAO;
+
+interface
+
+implementation
+
+end.

@@ -1,0 +1,7 @@
+unit DAO.IProdutoDAO;
+
+interface
+
+implementation
+
+end.

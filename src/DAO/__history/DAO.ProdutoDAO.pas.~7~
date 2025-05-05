@@ -1,0 +1,79 @@
+unit DAO.ProdutoDAO;
+
+interface
+
+uses
+  DAO.IProdutoDAO, Model.Produto, System.Generics.Collections, DAO.IConnection,
+  FireDAC.Comp.Client, System.SysUtils;
+
+type
+  TProdutoDAO = class(TInterfacedObject, IProdutoDAO)
+  private
+    FConnIntf: IConnection;
+  public
+    constructor Create(const AConn: IConnection);
+    function ListarTodos: TObjectList<TProduto>;
+    function BuscarPorCodigo(const ACodigo: Integer): TProduto;
+  end;
+
+implementation
+
+{ TProdutoDAO }
+
+constructor TProdutoDAO.Create(const AConn: IConnection);
+begin
+  inherited Create;
+  FConnIntf := AConn;
+end;
+
+function TProdutoDAO.BuscarPorCodigo(const ACodigo: Integer): TProduto;
+var
+  qry: TFDQuery;
+begin
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConnIntf.GetConnection;
+    qry.SQL.Text :=
+      'SELECT codigo, descricao, preco_venda FROM produto WHERE codigo = :pCodigo';
+    qry.ParamByName('pCodigo').AsInteger := ACodigo;
+    qry.Open;
+    if qry.Eof then
+      raise Exception.CreateFmt('Produto %d não encontrado',[ACodigo]);
+    Result := TProduto.Create;
+    Result.Codigo := qry.FieldByName('codigo').AsInteger;
+    Result.Descricao := qry.FieldByName('descricao').AsString;
+    Result.Preco := qry.FieldByName('preco').AsCurrency;
+  finally
+    qry.Free;
+  end;
+end;
+
+function TProdutoDAO.ListarTodos: TObjectList<TProduto>;
+var
+  qry: TFDQuery;
+  lst: TObjectList<TProduto>;
+  prod: TProduto;
+begin
+  lst := TObjectList<TProduto>.Create(True);
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConnIntf.GetConnection;
+    qry.SQL.Text :=
+      'SELECT codigo, descricao, preco FROM produto ORDER BY descricao';
+    qry.Open;
+    while not qry.Eof do
+    begin
+      prod := TProduto.Create;
+      prod.Codigo := qry.FieldByName('codigo').AsInteger;
+      prod.Descricao := qry.FieldByName('descricao').AsString;
+      prod.Preco := qry.FieldByName('preco').AsCurrency;
+      lst.Add(prod);
+      qry.Next;
+    end;
+    Result := lst;
+  finally
+    qry.Free;
+  end;
+end;
+
+end.

@@ -1,0 +1,44 @@
+unit Controller.ClienteController;
+
+interface
+
+uses
+  DAO.IConnection, DAO.IClienteDAO, Model.Cliente, System.Generics.Collections;
+
+type
+  TClienteController = class
+  private
+    FClienteDAO: IClienteDAO;
+  public
+    constructor Create(const AConn: IConnection);
+    destructor Destroy; override;
+    function BuscarPorCodigo(const ACodigo: Integer): TCliente;
+    function ListarTodos: TObjectList<TCliente>;
+  end;
+
+implementation
+
+{ TClienteController }
+
+function TClienteController.BuscarPorCodigo(const ACodigo: Integer): TCliente;
+begin
+
+end;
+
+constructor TClienteController.Create(const AConn: IConnection);
+begin
+  FClienteDAO := TClienteDAO.Create(AConn);
+end;
+
+destructor TClienteController.Destroy;
+begin
+
+  inherited;
+end;
+
+function TClienteController.ListarTodos: TObjectList<TCliente>;
+begin
+
+end;
+
+end.

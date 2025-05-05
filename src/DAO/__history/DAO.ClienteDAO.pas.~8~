@@ -1,0 +1,81 @@
+unit DAO.ClienteDAO;
+
+interface
+
+uses
+  DAO.IClienteDAO, Model.Cliente, System.Generics.Collections, DAO.IConnection,
+  FireDAC.Comp.Client, System.SysUtils;
+
+type
+  TClienteDAO = class(TInterfacedObject, IClienteDAO)
+  private
+    FConnIntf: IConnection;
+  public
+    constructor Create(const AConn: IConnection);
+    function ListAll: TObjectList<TCliente>;
+    function FindById(const ACodigo: Integer): TCliente;
+  end;
+
+implementation
+
+{ TClienteDAO }
+
+constructor TClienteDAO.Create(const AConn: IConnection);
+begin
+  inherited Create;
+  FConnIntf := AConn;
+end;
+
+function TClienteDAO.FindById(const ACodigo: Integer): TCliente;
+var
+  qry: TFDQuery;
+begin
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConnIntf.GetConnection;
+    qry.SQL.Text :=
+      'SELECT codigo, nome, cidade, uf FROM cliente WHERE codigo = :pCodigo';
+    qry.ParamByName('pCodigo').AsInteger := ACodigo;
+    qry.Open;
+    if qry.Eof then
+      raise Exception.CreateFmt('Cliente %d não encontrado',[ACodigo]);
+    Result := TCliente.Create;
+    Result.Codigo := qry.FieldByName('codigo').AsInteger;
+    Result.Nome := qry.FieldByName('nome').AsString;
+    Result.Cidade := qry.FieldByName('cidade').AsString;
+    Result.UF := qry.FieldByName('uf').AsString;
+  finally
+    qry.Free;
+  end;
+end;
+
+function TClienteDAO.ListAll: TObjectList<TCliente>;
+var
+  qry: TFDQuery;
+  lst: TObjectList<TCliente>;
+  cli: TCliente;
+begin
+  lst := TObjectList<TCliente>.Create(True);
+  qry := TFDQuery.Create(nil);
+  try
+    qry.Connection := FConnIntf.GetConnection;
+    qry.SQL.Text :=
+      'SELECT codigo, nome, cidade, uf FROM cliente ORDER BY nome';
+    qry.Open;
+    while not qry.Eof do
+    begin
+      cli := TCliente.Create;
+      cli.Codigo := qry.FieldByName('codigo').AsInteger;
+      cli.Nome := qry.FieldByName('nome').AsString;
+      cli.Cidade := qry.FieldByName('cidade').AsString;
+      cli.UF := qry.FieldByName('uf').AsString;
+      lst.Add(cli);
+      qry.Next;
+    end;
+    Result := lst;
+  finally
+    qry.Free;
+  end;
+end;
+
+end.

@@ -1,0 +1,152 @@
+unit Controller.PedidoController;
+
+interface
+
+uses
+  DAO.IConnection, DAO.IClienteDAO, DAO.IProdutoDAO, DAO.IPedidoDAO,
+  System.Generics.Collections, Model.Pedido, Model.PedidoItem, Model.Produto,
+  Controller.ClienteController, Controller.ProdutoController, System.SysUtils;
+
+type
+  TPedidoController = class
+  private
+    FClienteCtrl: TClienteController;
+    FProdutoCtrl: TProdutoController;
+    FPedidoDAO: IPedidoDAO;
+    FPedido: TPedido;
+  public
+    constructor Create;
+    destructor Destroy; override;
+    function RetornaItemsPedido: TObjectList<TPedidoItem>;
+    function RetornaValorTotalPedido: Currency;
+    function DefinirCliente(const ACodigo: Integer): string;
+    function DefinirProduto(const ACodigo: Integer): string;
+    procedure AdicionarItemPedido(const ACodProduto, AQtd: Integer; APrecoUnitario: Currency);
+    procedure AtualizarItemPedido(const AIndex, AQtd: Integer; APrecoUnitario: Currency);
+    procedure RemoverItemPedido(const AIndex: Integer);
+    procedure CarregarPedido(const ANumero: Integer);
+    procedure NovoPedido;
+    procedure GravarPedido;
+    procedure DeletarPedido(const ANumero: Integer);
+
+    property Pedido: TPedido read FPedido;
+  end;
+
+implementation
+
+uses
+  DAO.ConnectionFactory, DAO.ClienteDAO, DAO.ProdutoDAO, DAO.PedidoDAO, Util;
+
+{ TPedidoController }
+
+procedure TPedidoController.AdicionarItemPedido(const ACodProduto, AQtd: Integer;
+  APrecoUnitario: Currency);
+var
+  pedidoItem: TPedidoItem;
+  produto: TProduto;
+begin
+  pedidoItem := TPedidoItem.Create;
+  produto := FProdutoCtrl.BuscarPorCodigo(ACodProduto);
+  try
+    pedidoItem.Produto.Codigo    := produto.Codigo;
+    pedidoItem.Produto.Descricao := produto.Descricao;
+    pedidoItem.Produto.Preco     := produto.Preco;
+  finally
+    FreeAndNil(produto);
+  end;
+  pedidoItem.Quantidade    := AQtd;
+  pedidoItem.ValorUnitario := APrecoUnitario;
+  pedidoItem.CalculaTotal;
+  FPedido.Itens.Add(pedidoItem);
+  FPedido.CalculaTotal;
+end;
+
+procedure TPedidoController.AtualizarItemPedido(const AIndex, AQtd: Integer;
+  APrecoUnitario: Currency);
+begin
+  with FPedido.Itens[AIndex] do
+  begin
+    Quantidade := AQtd;
+    ValorUnitario := APrecoUnitario;
+    CalculaTotal;
+  end;
+  FPedido.CalculaTotal;
+end;
+
+procedure TPedidoController.CarregarPedido(const ANumero: Integer);
+begin
+  FreeAndNil(FPedido);
+  FPedido := FPedidoDAO.BuscarPedido(ANumero);
+end;
+
+constructor TPedidoController.Create;
+var
+  conexao: IConnection;
+begin
+  inherited Create;
+  conexao := TConnectionFactory.Create(GetiniPath);
+  FClienteCtrl := TClienteController.Create(conexao);
+  FProdutoCtrl := TProdutoController.Create(conexao);
+  FPedidoDAO := TPedidoDAO.Create(conexao);
+end;
+
+function TPedidoController.DefinirCliente(const ACodigo: Integer): string;
+var
+  nomeCliente: string;
+begin
+  nomeCliente := FClienteCtrl.BuscarPorCodigo(ACodigo).Nome;
+  FPedido.Cliente.Codigo := ACodigo;
+  Result := nomeCliente;
+end;
+
+function TPedidoController.DefinirProduto(const ACodigo: Integer): string;
+var
+  descricaoProduto: string;
+begin
+  descricaoProduto := FProdutoCtrl.BuscarPorCodigo(ACodigo).Descricao;
+  FPedido.Produto.Codigo := ACodigo;
+  Result := descricaoProduto;
+end;
+
+procedure TPedidoController.DeletarPedido(const ANumero: Integer);
+begin
+  FPedidoDAO.DeletarPedido(ANumero);
+end;
+
+destructor TPedidoController.Destroy;
+begin
+  FreeAndNil(FClienteCtrl);
+  FreeAndNil(FProdutoCtrl);
+  FreeAndNil(FPedido);
+  FPedidoDAO := Nil;
+  inherited;
+end;
+
+procedure TPedidoController.GravarPedido;
+begin
+  FPedidoDAO.GravarPedido(FPedido);
+end;
+
+procedure TPedidoController.NovoPedido;
+begin
+  FreeAndNil(FPedido);
+  FPedido := TPedido.Create;
+end;
+
+procedure TPedidoController.RemoverItemPedido(const AIndex: Integer);
+begin
+  FPedido.Itens.Delete(AIndex);
+  FPedido.CalculaTotal;
+end;
+
+function TPedidoController.RetornaItemsPedido: TObjectList<TPedidoItem>;
+begin
+  Result := FPedido.Itens;
+end;
+
+function TPedidoController.RetornaValorTotalPedido: Currency;
+begin
+  Result := FPedido.ValorTotal;
+end;
+
+end.

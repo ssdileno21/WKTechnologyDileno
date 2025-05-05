@@ -1,0 +1,38 @@
+unit DAO.ConnectionFactory;
+
+interface
+
+uses
+  DAO.IConnection, UConfigDatabase;
+
+type
+  TConnectionFactory = class(TInterfacedObject, IConnection)
+  private
+    FConfig: TConfigDatabase;
+  public
+    constructor Create(const AIniPath: string);
+    destructor Destroy; override;
+    function GetConnection: TFDConnection;
+  end;
+
+implementation
+
+{ TConnectionFactory }
+
+constructor TConnectionFactory.Create(const AIniPath: string);
+begin
+
+end;
+
+destructor TConnectionFactory.Destroy;
+begin
+
+  inherited;
+end;
+
+function TConnectionFactory.GetConnection: TFDConnection;
+begin
+
+end;
+
+end.
