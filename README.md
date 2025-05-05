@@ -1,4 +1,4 @@
-# WKTechnologyDileno
+# WKTesteDileno
 
 Este repositório contém a solução do Teste Técnico solicitado pela WK Technology
 
